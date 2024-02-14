@@ -181,6 +181,7 @@ function M.on_fs_event(err, system)
         else
             -- Invisible buffers should be updated next time user enters it.
             bufnr_to_dir_map[bufnr] = nil
+            api.nvim_buf_clear_namespace(bufnr, NAMESPACE, 0, -1)
         end
     end
 

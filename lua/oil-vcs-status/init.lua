@@ -1,8 +1,9 @@
 local autocmd = require "oil-vcs-status.autocmd"
+local config = require "oil-vcs-status.config"
 local log = require "oil-vcs-status.log"
 local status = require "oil-vcs-status.status"
 
-log.level = vim.log.levels.TRACE
+log.level = vim.log.levels.WARN
 
 local M = {}
 
@@ -46,6 +47,20 @@ local function setup_defualt_highlight()
     end
 end
 
+local function merge_config_tbl(dst, src)
+    for k, v in pairs(src) do
+        local old_v = dst[k]
+
+        if not old_v then
+            dst[k] = v
+        elseif type(old_v) ~= "table" then
+            dst[k] = v
+        else
+            merge_config_tbl(old_v, v)
+        end
+    end
+end
+
 local initialized = false
 
 function M.init()
@@ -55,7 +70,14 @@ function M.init()
     autocmd.setup_autocmd()
     setup_defualt_highlight()
 
-    status.on_dir_changed()
+    status.update_status(0)
+end
+
+---@param opts? table
+function M.setup(opts)
+    if opts then
+        merge_config_tbl(config, opts)
+    end
 end
 
 return M

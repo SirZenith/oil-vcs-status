@@ -11,7 +11,12 @@ function M.notify(level, ...)
 
     local buffer = { ... }
     for i = 1, #buffer do
-        buffer[i] = tostring(buffer[i])
+        local value = buffer[i]
+        if type(value) == "string" then
+            buffer[i] = value
+        else
+            buffer[i] = vim.inspect(buffer[i])
+        end
     end
 
     local str = ("[oil-vcs-status %s] %s"):format(

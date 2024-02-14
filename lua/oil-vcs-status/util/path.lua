@@ -33,10 +33,10 @@ local function check_child_file_exists(path, names)
     return exists
 end
 
--- Find
+-- Find root directory by existance of specific file or directory.
 ---@param path string
 ---@param names string[]
----@return string?
+---@return string? root_dir # normalized absolute path of repo root.
 function M.find_root_by_entry(path, names)
     local last_dir = ""
     local cur_dir = path
@@ -56,6 +56,11 @@ function M.find_root_by_entry(path, names)
             cur_dir = vim.fs.dirname(cur_dir)
         end
     end
+
+    if not root then return nil end
+
+    root = vim.fn.fnamemodify(root, ":p")
+    root = vim.fs.normalize(root)
 
     return root
 end

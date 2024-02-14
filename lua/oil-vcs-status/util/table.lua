@@ -12,7 +12,7 @@ function M.filter_in_place(list, cond)
         local ok = cond(i, value)
         if ok then
             cnt = cnt + 1
-            list[i] = value
+            list[cnt] = value
         end
     end
 

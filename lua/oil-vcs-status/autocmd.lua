@@ -30,11 +30,6 @@ function M.setup_autocmd()
             setup_buf_change_watcher(bufnr, augroup)
         end,
     })
-
-    api.nvim_create_autocmd("DirChanged", {
-        group = augroup,
-        callback = status.on_dir_changed,
-    })
 end
 
 return M

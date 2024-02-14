@@ -3,7 +3,9 @@ local status_const = require "oil-vcs-status.constant.status"
 local StatusType = status_const.StatusType
 
 local M = {
-    git_executable = "git",
+    vcs_executable = {
+        git = "git",
+    },
 
     ---@type table<oil-vcs-status.StatusType, string>
     status_symbol = {

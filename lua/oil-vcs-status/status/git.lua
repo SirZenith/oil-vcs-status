@@ -1,6 +1,7 @@
+local config = require "oil-vcs-status.config"
 local log = require "oil-vcs-status.log"
 local status_const = require "oil-vcs-status.constant.status"
-local StatusTree = require "oil-vcs-status.status.status_tree"
+local VcsSystem = require "oil-vcs-status.status.vcs_system"
 local util = require "oil-vcs-status.util"
 local path_util = require "oil-vcs-status.util.path"
 local table_util = require "oil-vcs-status.util.table"
@@ -21,19 +22,22 @@ local STATUS_MAP = {
     ["R"] = StatusType.Renamed,
     ["C"] = StatusType.Copied,
     ["U"] = StatusType.Unmerged,
+
+    ["m"] = StatusType.Modified,
 }
 
--- normalized absolute path of git repo root directory
-local root_dir = nil ---@type string?
+local IGNORE_FS_EVENT = {
+    [".git/index.lock"] = true,
+}
 
-local status_tree = StatusTree:new("<git root>")
+-- Map repo root path to VcsSystem object.
+---@type table<string, oil-vcs-status.status.VcsSystem>
+local active_systems = {}
 
+---@param status_tree oil-vcs-status.status.StatusTree
 ---@param stdout string
-local function load_status_data(stdout)
+local function load_status_data(status_tree, stdout)
     status_tree:reset()
-    if not root_dir then
-        return
-    end
 
     local lines = vim.split(stdout, "\r?\n")
     table_util.filter_in_place(lines, function(_, value)
@@ -70,25 +74,17 @@ local function load_status_data(stdout)
     end
 end
 
--- ----------------------------------------------------------------------------
-
--- Update git root directory path after working directory changed.
-function M.update_root_dir()
-    local cwd = vim.fn.getcwd()
-    root_dir = path_util.find_root_by_entry(cwd, { ".git" })
-    if root_dir then
-        root_dir = vim.fn.fnamemodify(root_dir, ":p")
-    end
-
-    log.trace("git root updated", root_dir or "nil")
-end
-
----@param callback fun(err?: string)
-function M.update_status(callback)
-    log.trace("git update status")
-
-    if not root_dir then
-        callback "git repo root not found"
+---@param root_dir string
+---@param callback fun(result: oil-vcs-status.util.CmdResult)
+local function status_cmd(root_dir, callback)
+    local cmd = config.vcs_executable.git
+    if vim.fn.executable(cmd) ~= 1 then
+        callback {
+            code = 1,
+            signal = 0,
+            stdout = "",
+            stderr = "git executable not found",
+        }
         return
     end
 
@@ -96,80 +92,42 @@ function M.update_status(callback)
         args = { "status", "--short", "--ignored" },
         cwd = root_dir,
     }
-    util.run_cmd("git", opt, function(result)
-        if result.code ~= 0 then
-            local err = result.stderr
-            callback(err ~= "" and err or "failed to get git status")
-            return
-        end
 
-        load_status_data(result.stdout)
-        callback()
-    end)
+    util.run_cmd("git", opt, callback)
 end
 
----@return boolean
-function M.is_active()
-    return root_dir ~= nil
+-- Find git repo root of given directory.
+---@param dir string
+---@return string? root_dir # normalized absolute path of repo root.
+local function find_repo_root(dir)
+    local root_dir = path_util.find_root_by_entry(dir, { ".git" })
+    return root_dir
 end
 
----@param abs_path string # normalized absolute path of entry
----@return oil-vcs-status.status.EntryStatus?
-function M.get_entry_status(abs_path)
-    if not M.is_active() then
+---@param dir string
+---@return oil-vcs-status.status.VcsSystem?
+function M.get_active_system(dir)
+    local root_dir = find_repo_root(dir)
+    if not root_dir then return nil end
+
+    local system = active_systems[root_dir]
+    if not system then
+        system = VcsSystem:new("git", root_dir)
+        active_systems[root_dir] = system
+
+        system.status_cmd_runner = status_cmd
+        system.status_updater = load_status_data
+
+        system.ignore_fs_event = IGNORE_FS_EVENT
+        system:init_fs_event_listener()
+    end
+
+    if system.is_deleted then
+        active_systems[root_dir] = nil
         return nil
     end
 
-    local root_len = #root_dir
-    if #abs_path < root_len then
-        return nil
-    end
-
-    local child_path = abs_path:sub(root_len + 1)
-    local entry = status_tree:get_child_by_path(child_path)
-    if not entry then return nil end
-
-    return {
-        local_status = entry.local_status,
-        remote_status = entry.remote_status,
-    }
-end
-
----@param abs_path string
----@return boolean
-function M.check_entry_dirty(abs_path)
-    if not M.is_active then
-        return false
-    end
-
-    local root_len = #root_dir
-    if #abs_path < root_len then
-        return false
-    end
-
-    local child_path = abs_path:sub(root_len + 1)
-    local entry = status_tree:get_child_by_path(child_path)
-    if not entry then return false end
-
-    return entry.is_dirty
-end
-
----@param abs_path string
-function M.clear_entry_dirty(abs_path)
-    if not M.is_active then
-        return false
-    end
-
-    local root_len = #root_dir
-    if #abs_path < root_len then
-        return false
-    end
-
-    local child_path = abs_path:sub(#root_dir + 1)
-    local entry = status_tree:get_child_by_path(child_path)
-    if entry then
-        entry.is_dirty = false
-    end
+    return system
 end
 
 return M

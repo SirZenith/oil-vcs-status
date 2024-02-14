@@ -30,7 +30,7 @@ function StatusTree:new(name)
     local obj = setmetatable({}, self)
 
     obj.name = name
-    obj.is_dirty = false
+    obj.is_dirty = true
     obj.local_status = StatusType.Unmodified
     obj.remote_status = StatusType.Unmodified
 

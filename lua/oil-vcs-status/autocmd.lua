@@ -1,4 +1,3 @@
-local log = require "oil-vcs-status.log"
 local status = require "oil-vcs-status.status"
 
 local api = vim.api

@@ -1,9 +1,5 @@
-local status_const = require "oil-vcs-status.constant.status"
 local log = require "oil-vcs-status.log"
 local StatusTree = require "oil-vcs-status.status.status_tree"
-
-local StatusType = status_const.StatusType
-local loop = vim.loop
 
 ---@alias oil-vcs-status.status.IgnoreFsEventMap table<string, true | { change?: true, rename?: true }>
 
@@ -208,6 +204,14 @@ function VcsSystem:clear_entry_dirty(path)
     if entry then
         entry.is_dirty = false
     end
+end
+
+-- Check if given path is a sub directory of repo root
+---@param dir string # normalized absolute path
+---@return boolean
+function VcsSystem:check_is_sub_dir(dir)
+    local root_dir = self.root_dir
+    return dir:sub(1, #root_dir) == root_dir
 end
 
 return VcsSystem

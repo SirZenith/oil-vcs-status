@@ -120,7 +120,7 @@ local function on_fs_event(err, system)
     end
 
     for bufnr, dir in pairs(bufnr_to_dir_map) do
-        if not system:get_entry_status(dir) then
+        if not system:check_is_sub_dir(dir) then
             -- pass
         elseif visible_buf_set[bufnr] then
             -- Visible buffers should be updated right away.
@@ -128,7 +128,6 @@ local function on_fs_event(err, system)
         else
             -- Invisible buffers should be updated next time user enters it.
             bufnr_to_dir_map[bufnr] = nil
-            api.nvim_buf_clear_namespace(bufnr, NAMESPACE, 0, -1)
         end
     end
 

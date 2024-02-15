@@ -164,7 +164,7 @@ function VcsSystem:update_status(callback)
 end
 
 ---@param path string # normalized absolute path of entry
----@return oil-vcs-status.StatusType?
+---@return oil-vcs-status.status.EntryStatus?
 function VcsSystem:get_entry_status(path)
     local root_len = #self.root_dir
     if #path < root_len then
@@ -175,27 +175,10 @@ function VcsSystem:get_entry_status(path)
     local entry = self.status_tree:get_child_by_path(child_path)
     if not entry then return nil end
 
-    local status
-    local local_status = entry.local_status
-    local remote_status = entry.remote_status
-
-    if local_status == StatusType.Unmodified then
-        status = remote_status
-    elseif remote_status == StatusType.Unmodified then
-        status = local_status
-    elseif remote_status == StatusType.Unmerged
-        or local_status == StatusType.Unmerged
-    then
-        status = StatusType.Unmerged
-    elseif remote_status == local_status
-        and (remote_status == StatusType.Added or remote_status == StatusType.Deleted)
-    then
-        status = StatusType.Unmerged
-    else
-        status = local_status
-    end
-
-    return status
+    return {
+        local_status = entry.local_status,
+        remote_status = entry.remote_status,
+    }
 end
 
 ---@param path string

@@ -3,6 +3,7 @@ local oil = require "oil"
 local config = require "oil-vcs-status.config"
 local log = require "oil-vcs-status.log"
 local status_git = require "oil-vcs-status.status.git"
+local table_util = require "oil-vcs-status.util.table"
 
 local api = vim.api
 
@@ -50,6 +51,7 @@ local function get_oil_buffer_dir(bufnr)
     return path
 end
 
+-- Check if a directory has status value update.
 ---@param dir string
 ---@return boolean
 local function check_dir_status_dirty(dir)
@@ -65,17 +67,21 @@ local function check_dir_status_dirty(dir)
     return is_dirty
 end
 
+-- Write status symbols to given row.
 ---@param bufnr integer
 ---@param line integer
----@param status oil-vcs-status.StatusType
-local function add_symbol_to_buffer(bufnr, line, status)
-    local text = config.status_symbol[status] or " "
-    local hl = config.status_hl_group[status] or nil
+---@param ... oil-vcs-status.StatusType
+local function add_symbol_to_buffer(bufnr, line, ...)
+    for _, status in ipairs { ... } do
+        local text = config.status_symbol[status] or " "
+        local hl = config.status_hl_group[status] or nil
 
-    api.nvim_buf_set_extmark(bufnr, NAMESPACE, line - 1, 0, {
-        sign_text = text,
-        sign_hl_group = hl,
-    })
+        api.nvim_buf_set_extmark(bufnr, NAMESPACE, line - 1, 0, {
+            sign_text = text,
+            sign_hl_group = hl,
+            priority = config.status_priority[status] or 0,
+        })
+    end
 end
 
 -- Update status symbol for given entry line.
@@ -97,67 +103,12 @@ local function update_entry_status(bufnr, line, system)
     local status = system:get_entry_status(path)
     if not status then return end
 
-    add_symbol_to_buffer(bufnr, line, status)
-end
-
----@param bufnr integer
----@param dir string
----@param systems oil-vcs-status.status.VcsSystem[]
-local function after_all_buffer_status_update(bufnr, dir, systems)
-    bufnr_to_dir_map[bufnr] = dir
-    api.nvim_buf_clear_namespace(bufnr, NAMESPACE, 0, -1)
-
-    for _, system in ipairs(systems) do
-        system:clear_entry_dirty(dir)
-
-        local line_cnt = api.nvim_buf_line_count(bufnr)
-        for i = 1, line_cnt do
-            update_entry_status(bufnr, i, system)
-        end
-    end
-end
-
--- Update status symbol for given oil buffer.
----@param bufnr integer
-function M.update_status(bufnr)
-    local dir = get_oil_buffer_dir(bufnr)
-    if not dir then return end
-
-    local old_dir = bufnr_to_dir_map[bufnr]
-    if old_dir == dir and not check_dir_status_dirty(dir) then
-        return
-    end
-
-    local systems = {} ---@type oil-vcs-status.status.VcsSystem[]
-    for _, vcs in ipairs(vcs_list) do
-        systems[#systems + 1] = vcs.get_active_system(dir)
-    end
-
-
-    local total_cnt = #systems
-    local cnt = 0
-    for _, system in ipairs(systems) do
-        system.fs_event_callback = M.on_fs_event
-
-        system:update_status(function(err)
-            if err then
-                log.warn(err)
-            end
-
-            cnt = cnt + 1
-            if cnt < total_cnt then
-                return
-            end
-
-            log.trace("update status:", dir)
-            after_all_buffer_status_update(bufnr, dir, systems)
-        end)
-    end
+    add_symbol_to_buffer(bufnr, line, status.remote_status, status.local_status)
 end
 
 ---@param err? string
 ---@param system oil-vcs-status.status.VcsSystem
-function M.on_fs_event(err, system)
+local function on_fs_event(err, system)
     if err then
         log.warn(err)
         return
@@ -193,6 +144,10 @@ function M.on_fs_event(err, system)
             return
         end
 
+        table_util.filter_in_place(targets, function(_, value)
+            return api.nvim_buf_is_valid(value) and api.nvim_buf_is_loaded(value)
+        end)
+
         for _, target in ipairs(targets) do
             log.trace("fs event update", bufnr_to_dir_map[target] or "nil")
             api.nvim_buf_clear_namespace(target, NAMESPACE, 0, -1)
@@ -203,6 +158,70 @@ function M.on_fs_event(err, system)
             end
         end
     end)
+end
+
+
+-- Update status symbol in given buffer after all active vcs system finished
+-- status value update.
+---@param bufnr integer
+---@param dir string
+---@param systems oil-vcs-status.status.VcsSystem[]
+local function after_all_buffer_status_update(bufnr, dir, systems)
+    if not api.nvim_buf_is_valid(bufnr)
+        or not api.nvim_buf_is_loaded(bufnr)
+    then
+        return
+    end
+
+    bufnr_to_dir_map[bufnr] = dir
+    api.nvim_buf_clear_namespace(bufnr, NAMESPACE, 0, -1)
+
+    for _, system in ipairs(systems) do
+        system:clear_entry_dirty(dir)
+
+        local line_cnt = api.nvim_buf_line_count(bufnr)
+        for i = 1, line_cnt do
+            update_entry_status(bufnr, i, system)
+        end
+    end
+end
+
+-- Update status symbol for given oil buffer.
+---@param bufnr integer
+function M.update_status(bufnr)
+    local dir = get_oil_buffer_dir(bufnr)
+    if not dir then return end
+
+    local old_dir = bufnr_to_dir_map[bufnr]
+    if old_dir == dir and not check_dir_status_dirty(dir) then
+        return
+    end
+
+    local systems = {} ---@type oil-vcs-status.status.VcsSystem[]
+    for _, vcs in ipairs(vcs_list) do
+        systems[#systems + 1] = vcs.get_active_system(dir)
+    end
+
+
+    local total_cnt = #systems
+    local cnt = 0
+    for _, system in ipairs(systems) do
+        system.fs_event_callback = on_fs_event
+
+        system:update_status(function(err)
+            if err then
+                log.warn(err)
+            end
+
+            cnt = cnt + 1
+            if cnt < total_cnt then
+                return
+            end
+
+            log.trace("update status:", dir)
+            after_all_buffer_status_update(bufnr, dir, systems)
+        end)
+    end
 end
 
 return M

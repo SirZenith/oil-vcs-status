@@ -6,6 +6,7 @@ local M = {
     -- Executable path of each version control system.
     vcs_executable = {
         git = "git",
+        svn = "svn",
     },
 
     -- Sign character used by each status.
@@ -21,6 +22,7 @@ local M = {
         [StatusType.Unmodified]          = " ",
         [StatusType.Unmerged]            = "U",
         [StatusType.Untracked]           = "?",
+        [StatusType.External]            = "X",
 
         [StatusType.UpstreamAdded]       = "A",
         [StatusType.UpstreamCopied]      = "C",
@@ -32,6 +34,7 @@ local M = {
         [StatusType.UpstreamUnmodified]  = " ",
         [StatusType.UpstreamUnmerged]    = "U",
         [StatusType.UpstreamUntracked]   = "?",
+        [StatusType.UpstreamExternal]    = "X",
     },
 
     -- Highlight group name used by each status type.
@@ -47,6 +50,7 @@ local M = {
         [StatusType.Unmodified]          = "OilVcsStatusUnmodified",
         [StatusType.Unmerged]            = "OilVcsStatusUnmerged",
         [StatusType.Untracked]           = "OilVcsStatusUntracked",
+        [StatusType.External]            = "OilVcsStatusExternal",
 
         [StatusType.UpstreamAdded]       = "OilVcsStatusUpstreamAdded",
         [StatusType.UpstreamCopied]      = "OilVcsStatusUpstreamCopied",
@@ -58,6 +62,7 @@ local M = {
         [StatusType.UpstreamUnmodified]  = "OilVcsStatusUpstreamUnmodified",
         [StatusType.UpstreamUnmerged]    = "OilVcsStatusUpstreamUnmerged",
         [StatusType.UpstreamUntracked]   = "OilVcsStatusUpstreamUntracked",
+        [StatusType.UpstreamExternal]    = "OilVcsStatusUpstreamExternal",
     },
 
     -- Sign priority of each staus. When sign column width is less then staus
@@ -74,6 +79,8 @@ local M = {
 
         [StatusType.UpstreamUnmodified]  = 2,
         [StatusType.Unmodified]          = 2,
+        [StatusType.UpstreamExternal]    = 2,
+        [StatusType.External]            = 2,
 
         [StatusType.UpstreamCopied]      = 3,
         [StatusType.UpstreamRenamed]     = 3,

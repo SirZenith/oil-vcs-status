@@ -40,6 +40,9 @@ local function setup_defualt_highlight()
         OilVcsStatusUntracked = {
             link = "DiffText",
         },
+        OilVcsStatusExternal = {
+            link = "Normal",
+        },
 
         -- Upstream highlight groups
         OilVcsStatusUpstreamAdded = {
@@ -71,6 +74,9 @@ local function setup_defualt_highlight()
         },
         OilVcsStatusUpstreamUntracked = {
             link = "DiffText",
+        },
+        OilVcsStatusUpstreamExternal = {
+            link = "Normal",
         },
     }
 

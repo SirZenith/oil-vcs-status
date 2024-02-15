@@ -3,6 +3,7 @@ local oil = require "oil"
 local config = require "oil-vcs-status.config"
 local log = require "oil-vcs-status.log"
 local status_git = require "oil-vcs-status.status.git"
+local status_svn = require "oil-vcs-status.status.svn"
 
 local api = vim.api
 
@@ -19,7 +20,8 @@ local M = {}
 local NAMESPACE = vim.api.nvim_create_namespace("oil-vcs-status.status")
 
 local VCS_LIST = {
-    status_git
+    status_git,
+    status_svn,
 }
 
 -- Map buffer number to directory path

@@ -8,6 +8,7 @@ buffers.
 Currently supported systems are:
 
 - git
+- svn
 
 ## Usage
 

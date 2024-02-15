@@ -12,6 +12,7 @@ M.StatusType = {
     Unmodified          = "unmodified",
     Unmerged            = "unmerged",
     Untracked           = "untracked",
+    External            = "external",
 
     UpstreamAdded       = "upstream_added",
     UpstreamCopied      = "upstream_copied",
@@ -23,6 +24,7 @@ M.StatusType = {
     UpstreamUnmodified  = "upstream_unmodified",
     UpstreamUnmerged    = "upstream_unmerged",
     UpstreamUntracked   = "upstream_untracked",
+    UpstreamExternal    = "upstream_external",
 }
 
 return M

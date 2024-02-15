@@ -26,6 +26,22 @@ local STATUS_MAP = {
     ["m"] = StatusType.Modified,
 }
 
+---@type table<string, oil-vcs-status.StatusType>
+local UPSTREAM_STATUS_MAP = {
+    [" "] = StatusType.UpstreamUnmodified,
+    ["!"] = StatusType.UpstreamIgnored,
+    ["?"] = StatusType.UpstreamUntracked,
+    ["M"] = StatusType.UpstreamModified,
+    ["T"] = StatusType.UpstreamTypeChanged,
+    ["A"] = StatusType.UpstreamAdded,
+    ["D"] = StatusType.UpstreamDeleted,
+    ["R"] = StatusType.UpstreamRenamed,
+    ["C"] = StatusType.UpstreamCopied,
+    ["U"] = StatusType.UpstreamUnmerged,
+
+    ["m"] = StatusType.UpstreamModified,
+}
+
 local IGNORE_FS_EVENT = {
     [".git/index.lock"] = true,
 }
@@ -56,7 +72,7 @@ local function load_status_data(status_tree, stdout)
             paths = { path_str }
         end
 
-        local remote_status = STATUS_MAP[remote_status_str]
+        local remote_status = UPSTREAM_STATUS_MAP[remote_status_str]
         if not remote_status then
             log.warn(("unknown git status indicator: %q"):format(remote_status_str))
         end

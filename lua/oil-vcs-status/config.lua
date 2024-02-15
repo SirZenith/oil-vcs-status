@@ -3,10 +3,12 @@ local status_const = require "oil-vcs-status.constant.status"
 local StatusType = status_const.StatusType
 
 local M = {
+    -- Executable path of each version control system.
     vcs_executable = {
         git = "git",
     },
 
+    -- Sign character used by each status.
     ---@type table<oil-vcs-status.StatusType, string>
     status_symbol = {
         [StatusType.Added]       = "A",
@@ -19,8 +21,20 @@ local M = {
         [StatusType.Unmodified]  = " ",
         [StatusType.Unmerged]    = "U",
         [StatusType.Untracked]   = "?",
+
+        [StatusType.UpstreamAdded]       = "A",
+        [StatusType.UpstreamCopied]      = "C",
+        [StatusType.UpstreamDeleted]     = "D",
+        [StatusType.UpstreamIgnored]     = "!",
+        [StatusType.UpstreamModified]    = "M",
+        [StatusType.UpstreamRenamed]     = "R",
+        [StatusType.UpstreamTypeChanged] = "T",
+        [StatusType.UpstreamUnmodified]  = " ",
+        [StatusType.UpstreamUnmerged]    = "U",
+        [StatusType.UpstreamUntracked]   = "?",
     },
 
+    -- Highlight group name used by each status type.
     ---@type table<oil-vcs-status.StatusType, string | false>
     status_hl_group = {
         [StatusType.Added]       = "OilVcsStatusAdded",
@@ -33,23 +47,52 @@ local M = {
         [StatusType.Unmodified]  = "OilVcsStatusUnmodified",
         [StatusType.Unmerged]    = "OilVcsStatusUnmerged",
         [StatusType.Untracked]   = "OilVcsStatusUntracked",
+
+        [StatusType.UpstreamAdded]       = "OilVcsStatusUpstreamAdded",
+        [StatusType.UpstreamCopied]      = "OilVcsStatusUpstreamCopied",
+        [StatusType.UpstreamDeleted]     = "OilVcsStatusUpstreamDeleted",
+        [StatusType.UpstreamIgnored]     = "OilVcsStatusUpstreamIgnored",
+        [StatusType.UpstreamModified]    = "OilVcsStatusUpstreamModified",
+        [StatusType.UpstreamRenamed]     = "OilVcsStatusUpstreamRenamed",
+        [StatusType.UpstreamTypeChanged] = "OilVcsStatusUpstreamTypeChanged",
+        [StatusType.UpstreamUnmodified]  = "OilVcsStatusUpstreamUnmodified",
+        [StatusType.UpstreamUnmerged]    = "OilVcsStatusUpstreamUnmerged",
+        [StatusType.UpstreamUntracked]   = "OilVcsStatusUpstreamUntracked",
     },
 
+    -- Sign priority of each staus. When sign column width is less then staus
+    -- symbol number, symbol with higher priority will be shown.
     ---@type table<oil-vcs-status.StatusType, number>
     status_priority = {
-        [StatusType.Ignored]     = 0,
-        [StatusType.Unmodified]  = 1,
-        [StatusType.Untracked]   = 2,
+        [StatusType.UpstreamIgnored]     = 0,
+        [StatusType.UpstreamUnmodified]  = 1,
+        [StatusType.UpstreamUntracked]   = 2,
 
-        [StatusType.Copied]      = 3,
-        [StatusType.Renamed]     = 3,
-        [StatusType.TypeChanged] = 3,
+        [StatusType.UpstreamCopied]      = 3,
+        [StatusType.UpstreamRenamed]     = 3,
+        [StatusType.UpstreamTypeChanged] = 3,
 
-        [StatusType.Deleted]     = 4,
-        [StatusType.Modified]    = 4,
-        [StatusType.Added]       = 4,
+        [StatusType.UpstreamDeleted]     = 4,
+        [StatusType.UpstreamModified]    = 4,
+        [StatusType.UpstreamAdded]       = 4,
 
-        [StatusType.Unmerged]    = 5,
+        [StatusType.UpstreamUnmerged]    = 5,
+
+        -- --------------------------------------------------------------------
+
+        [StatusType.Ignored]     = 10,
+        [StatusType.Unmodified]  = 11,
+        [StatusType.Untracked]   = 12,
+
+        [StatusType.Copied]      = 13,
+        [StatusType.Renamed]     = 13,
+        [StatusType.TypeChanged] = 13,
+
+        [StatusType.Deleted]     = 14,
+        [StatusType.Modified]    = 14,
+        [StatusType.Added]       = 14,
+
+        [StatusType.Unmerged]    = 15,
     },
 }
 

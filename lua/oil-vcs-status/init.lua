@@ -9,6 +9,7 @@ local M = {}
 
 local function setup_defualt_highlight()
     local hl_map = {
+        -- Work tree highlight groups
         OilVcsStatusAdded = {
             link = "DiffAdd",
         },
@@ -34,9 +35,41 @@ local function setup_defualt_highlight()
             link = "Normal",
         },
         OilVcsStatusUnmerged = {
-            link = "",
+            link = "DiffDelete",
         },
         OilVcsStatusUntracked = {
+            link = "DiffText",
+        },
+
+        -- Upstream highlight groups
+        OilVcsStatusUpstreamAdded = {
+            link = "DiffAdd",
+        },
+        OilVcsStatusUpstreamCopied = {
+            link = "DiffAdd",
+        },
+        OilVcsStatusUpstreamDeleted = {
+            link = "DiffDelete"
+        },
+        OilVcsStatusUpstreamIgnored = {
+            link = "Comment",
+        },
+        OilVcsStatusUpstreamModified = {
+            link = "DiffChange",
+        },
+        OilVcsStatusUpstreamRenamed = {
+            link = "DiffChange",
+        },
+        OilVcsStatusUpstreamTypeChanged = {
+            link = "DiffChange",
+        },
+        OilVcsStatusUpstreamUnmodified = {
+            link = "Normal",
+        },
+        OilVcsStatusUpstreamUnmerged = {
+            link = "DiffDelete",
+        },
+        OilVcsStatusUpstreamUntracked = {
             link = "DiffText",
         },
     }

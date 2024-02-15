@@ -70,18 +70,13 @@ end
 -- Write status symbols to given row.
 ---@param bufnr integer
 ---@param line integer
----@param ... oil-vcs-status.StatusType
-local function add_symbol_to_buffer(bufnr, line, ...)
-    for _, status in ipairs { ... } do
-        local text = config.status_symbol[status] or " "
-        local hl = config.status_hl_group[status] or nil
-
-        api.nvim_buf_set_extmark(bufnr, NAMESPACE, line - 1, 0, {
-            sign_text = text,
-            sign_hl_group = hl,
-            priority = config.status_priority[status] or 0,
-        })
-    end
+---@param status oil-vcs-status.StatusType
+local function add_symbol_to_buffer(bufnr, line, status)
+    api.nvim_buf_set_extmark(bufnr, NAMESPACE, line - 1, 0, {
+        sign_text = config.status_symbol[status] or " ",
+        sign_hl_group = config.status_hl_group[status] or nil,
+        priority = config.status_priority[status] or 0,
+    })
 end
 
 -- Update status symbol for given entry line.
@@ -103,7 +98,8 @@ local function update_entry_status(bufnr, line, system)
     local status = system:get_entry_status(path)
     if not status then return end
 
-    add_symbol_to_buffer(bufnr, line, status.remote_status, status.local_status)
+    add_symbol_to_buffer(bufnr, line, status.remote_status)
+    add_symbol_to_buffer(bufnr, line, status.local_status)
 end
 
 ---@param err? string

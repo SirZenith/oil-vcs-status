@@ -14,6 +14,9 @@ Currently supported systems are:
 
 Install this plugin with plugin manager of your choice.
 
+This plugin depends on [oil.nvim](https://github.com/stevearc/oil.nvim), make
+sure you install oil.nvim and load it before this plugin.
+
 Then you should make sure you enable signcolumn in you oil.nvim buffers. For
 example, you can add this to you oil.nvim config:
 
@@ -30,7 +33,7 @@ After that, you should be able to see VCS status symbols.
 ## Configuration
 
 You don't have to set any option value to use this plugin, if you want to
-customize status symbol appearance, you can pass pass you config table to plugin
+customize status symbol appearance, you can pass you config table to plugin
 like following:
 
 ```lua
@@ -42,6 +45,7 @@ require "oil-vcs-status".setup {
     -- Executable path of each version control system.
     vcs_executable = {
         git = "git",
+        svn = "svn",
     },
 
     -- Sign character used by each status.
@@ -57,6 +61,7 @@ require "oil-vcs-status".setup {
         [StatusType.Unmodified]          = " ",
         [StatusType.Unmerged]            = "U",
         [StatusType.Untracked]           = "?",
+        [StatusType.External]            = "X",
 
         [StatusType.UpstreamAdded]       = "A",
         [StatusType.UpstreamCopied]      = "C",
@@ -68,6 +73,7 @@ require "oil-vcs-status".setup {
         [StatusType.UpstreamUnmodified]  = " ",
         [StatusType.UpstreamUnmerged]    = "U",
         [StatusType.UpstreamUntracked]   = "?",
+        [StatusType.UpstreamExternal]    = "X",
     },
 
     -- Highlight group name used by each status type.
@@ -83,6 +89,7 @@ require "oil-vcs-status".setup {
         [StatusType.Unmodified]          = "OilVcsStatusUnmodified",
         [StatusType.Unmerged]            = "OilVcsStatusUnmerged",
         [StatusType.Untracked]           = "OilVcsStatusUntracked",
+        [StatusType.External]            = "OilVcsStatusExternal",
 
         [StatusType.UpstreamAdded]       = "OilVcsStatusUpstreamAdded",
         [StatusType.UpstreamCopied]      = "OilVcsStatusUpstreamCopied",
@@ -94,6 +101,7 @@ require "oil-vcs-status".setup {
         [StatusType.UpstreamUnmodified]  = "OilVcsStatusUpstreamUnmodified",
         [StatusType.UpstreamUnmerged]    = "OilVcsStatusUpstreamUnmerged",
         [StatusType.UpstreamUntracked]   = "OilVcsStatusUpstreamUntracked",
+        [StatusType.UpstreamExternal]    = "OilVcsStatusUpstreamExternal",
     },
 
     -- Sign priority of each staus. When sign column width is less then staus
@@ -110,6 +118,8 @@ require "oil-vcs-status".setup {
 
         [StatusType.UpstreamUnmodified]  = 2,
         [StatusType.Unmodified]          = 2,
+        [StatusType.UpstreamExternal]    = 2,
+        [StatusType.External]            = 2,
 
         [StatusType.UpstreamCopied]      = 3,
         [StatusType.UpstreamRenamed]     = 3,
@@ -209,6 +219,7 @@ By default following highlight groups are used.
   - OilVcsStatusUnmodified,
   - OilVcsStatusUnmerged,
   - OilVcsStatusUntracked,
+  - OilVcsStatusExternal,
 - Upstream status
   - OilVcsStatusUpstreamAdded,
   - OilVcsStatusUpstreamCopied,
@@ -220,3 +231,4 @@ By default following highlight groups are used.
   - OilVcsStatusUpstreamUnmodified
   - OilVcsStatusUpstreamUnmerged,
   - OilVcsStatusUpstreamUntracked,
+  - OilVcsStatusUpstreamExternal,

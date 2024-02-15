@@ -133,6 +133,63 @@ require "oil-vcs-status".setup {
 }
 ```
 
+### Priority
+
+Each status type has its priority, when multiple items under them same
+directory are modified, directory will take status with highest priority among
+them as its status.
+
+When signcolumn's width is less than the number of status symbol, only the
+symbole with highest priority will be displayed.
+
+Default priority value is suitable for signcolumn of one character wide. If you
+want show both upstream status and local status from left to right at the same
+time, you can set priority value like following:
+
+```lua
+require "oil".setup {
+    win_options = {
+        signcolumn = "yes:2",
+    }
+}
+
+local status_const = require "oil-vcs-status.constant.status"
+
+local StatusType = status_const.StatusType
+
+require "oil-vcs-status".setup {
+    status_priority = {
+        [StatusType.UpstreamIgnored]     = 0,
+        [StatusType.UpstreamUntracked]   = 1,
+        [StatusType.UpstreamUnmodified]  = 2,
+
+        [StatusType.UpstreamCopied]      = 3,
+        [StatusType.UpstreamRenamed]     = 3,
+        [StatusType.UpstreamTypeChanged] = 3,
+
+        [StatusType.UpstreamDeleted]     = 4,
+        [StatusType.UpstreamModified]    = 4,
+        [StatusType.UpstreamAdded]       = 4,
+
+        [StatusType.UpstreamUnmerged]    = 5,
+
+        [StatusType.Ignored]             = 10,
+        [StatusType.Untracked]           = 11,
+        [StatusType.Unmodified]          = 12,
+
+        [StatusType.Copied]              = 13,
+        [StatusType.Renamed]             = 13,
+        [StatusType.TypeChanged]         = 13,
+
+        [StatusType.Deleted]             = 14,
+        [StatusType.Modified]            = 14,
+        [StatusType.Added]               = 14,
+
+        [StatusType.Unmerged]            = 15,
+    },
+}
+```
+
 ### Symbol Customization
 
 This plugin use different character and highlight groups for local and upstream

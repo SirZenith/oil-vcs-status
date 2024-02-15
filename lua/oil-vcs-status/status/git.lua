@@ -125,7 +125,7 @@ local function status_cmd(root_dir, callback)
         cwd = root_dir,
     }
 
-    util.run_cmd("git", opt, callback)
+    util.run_cmd(cmd, opt, callback)
 end
 
 -- Find git repo root of given directory.

@@ -50,6 +50,22 @@ local IGNORE_FS_EVENT = {
 ---@type table<string, oil-vcs-status.status.VcsSystem>
 local active_systems = {}
 
+---@param system oil-vcs-status.status.VcsSystem
+---@param filename string
+---@param events { change: boolean | nil, rename: boolean | nil }
+---@return boolean
+local function fs_event_ignore_checker(system, filename, events)
+    if util.check_should_ignore_fs_event_by_ignore_map(IGNORE_FS_EVENT, filename, events) then
+        return true
+    end
+
+    if vim.fn.filereadable(system.root_dir .. "/.git/index.lock") == 1 then
+        return true
+    end
+
+    return false
+end
+
 ---@param status_tree oil-vcs-status.status.StatusTree
 ---@param stdout string
 local function load_status_data(status_tree, stdout)
@@ -134,7 +150,7 @@ function M.get_active_system(dir)
         system.status_cmd_runner = status_cmd
         system.status_updater = load_status_data
 
-        system.ignore_fs_event = IGNORE_FS_EVENT
+        system.fs_event_ignore_checker = fs_event_ignore_checker
         system:init_fs_event_listener()
     end
 

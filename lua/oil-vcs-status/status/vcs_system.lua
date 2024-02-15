@@ -1,7 +1,7 @@
 local log = require "oil-vcs-status.log"
 local StatusTree = require "oil-vcs-status.status.status_tree"
 
----@alias oil-vcs-status.status.IgnoreFsEventMap table<string, true | { change?: true, rename?: true }>
+local loop = vim.loop
 
 ---@class oil-vcs-status.status.VcsSystem
 ---@field name string
@@ -12,7 +12,9 @@ local StatusTree = require "oil-vcs-status.status.status_tree"
 ---@field status_tree oil-vcs-status.status.StatusTree
 --
 ---@field fs_event_handle? table
----@field ignore_fs_event? oil-vcs-status.status.IgnoreFsEventMap
+---@field fs_event_ignore_checker? fun(system: oil-vcs-status.status.VcsSystem, filename: string, events: { change: boolean | nil, rename: boolean | nil }): boolean
+---@field fs_event_debounce integer
+---@field fs_event_trigger_time table<string, number>
 --
 ---@field status_cmd_runner? fun(root_dir: string, callback: fun(result: oil-vcs-status.util.CmdResult))
 ---@field status_updater? fun(status_tree: oil-vcs-status.status.StatusTree, stdout: string)
@@ -31,6 +33,9 @@ function VcsSystem:new(name, root_dir)
     obj.is_deleted = false
     obj.is_updating = false
     obj.status_tree = StatusTree:new(("<%s root>"):format(name))
+
+    obj.fs_event_debounce = 300
+    obj.fs_event_trigger_time = {}
 
     return obj
 end
@@ -66,31 +71,6 @@ function VcsSystem:cancel_fs_event_listener()
     end
 end
 
----@param filename string
----@param events { change: boolean | nil, rename: boolean | nil }
----@return boolean
-function VcsSystem:check_should_ignore_fs_event(filename, events)
-    local ignore_map = self.ignore_fs_event
-    if not ignore_map then return false end
-
-    filename = vim.fs.normalize(filename)
-    local ignore_data = ignore_map[filename]
-    if not ignore_data then return false end
-
-    local is_ignore = true
-
-    if type(ignore_data) == "table" then
-        for key in pairs(events) do
-            if not ignore_data[key] then
-                is_ignore = false
-                break
-            end
-        end
-    end
-
-    return is_ignore
-end
-
 ---@param err string?
 ---@param filename string
 ---@param events { change: boolean | nil, rename: boolean | nil }
@@ -102,15 +82,34 @@ function VcsSystem:on_fs_event(err, filename, events)
     end
 
     if self.is_updating then
+        -- Status value update also trigger file system event. Ignore new event
+        -- when there is an ongoing update.
         return
     end
 
-    self.is_dirty = true
-
-    local is_ignore = self:check_should_ignore_fs_event(filename, events)
+    local ignore_checker = self.fs_event_ignore_checker
+    local is_ignore = ignore_checker and ignore_checker(self, filename, events)
     if is_ignore then
         return
     end
+
+    local now = loop.now()
+    local last_trigger_time = self.fs_event_trigger_time[filename]
+    if last_trigger_time and now - last_trigger_time < self.fs_event_debounce then
+        return
+    end
+    self.fs_event_trigger_time[filename] = now
+
+    log.trace(
+        self.name, "fs event:",
+        filename,
+        "(",
+        "changed:", events.change or "false",
+        ", rename:", events.rename or "false",
+        ")"
+    )
+
+    self.is_dirty = true
 
     local callback = self.fs_event_callback;
     if callback then
@@ -142,6 +141,7 @@ function VcsSystem:update_status(callback)
         return
     end
 
+    log.trace(self.name, "run status cmd")
     self.is_updating = true
     cmd_runner(self.root_dir, function(result)
         self.is_updating = false

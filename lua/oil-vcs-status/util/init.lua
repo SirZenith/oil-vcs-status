@@ -53,4 +53,29 @@ function M.run_cmd(cmd, opt, callback)
     end)
 end
 
+---@alias oil-vcs-status.util.IgnoreFsEventMap table<string, true | { change?: true, rename?: true }>
+
+---@param ignore_map oil-vcs-status.util.IgnoreFsEventMap
+---@param filename string
+---@param events { change: boolean | nil, rename: boolean | nil }
+function M.check_should_ignore_fs_event_by_ignore_map(ignore_map, filename, events)
+    filename = vim.fs.normalize(filename)
+
+    local ignore_data = ignore_map[filename]
+    if not ignore_data then return false end
+
+    local is_ignore = true
+
+    if type(ignore_data) == "table" then
+        for key in pairs(events) do
+            if not ignore_data[key] then
+                is_ignore = false
+                break
+            end
+        end
+    end
+
+    return is_ignore
+end
+
 return M

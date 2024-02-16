@@ -212,7 +212,37 @@ This plugin use different character and highlight groups for local and upstream
 status.
 
 Default symbol for each status are just plain letters, nothing fancy. You can
-change them into emojis or nerd font icons if you'd like to.
+change them into emojis or nerd font icons if you'd like to. 
+
+A nerd font icon setup can be like:
+
+```lua
+status_symbol = {
+    [StatusType.Added]                = "",
+    [StatusType.Copied]               = "󰆏",
+    [StatusType.Deleted]              = "",
+    [StatusType.Ignored]              = "",
+    [StatusType.Modified]             = "",
+    [StatusType.Renamed]              = "",
+    [StatusType.TypeChanged]          = "󰉺",
+    [StatusType.Unmodified]           = " ",
+    [StatusType.Unmerged]             = "",
+    [StatusType.Untracked]            = "",
+    [StatusType.External]             = "",
+
+    [StatusType.UpstreamAdded]       = "󰈞",
+    [StatusType.UpstreamCopied]      = "󰈢",
+    [StatusType.UpstreamDeleted]     = "",
+    [StatusType.UpstreamIgnored]     = " ",
+    [StatusType.UpstreamModified]    = "󰏫",
+    [StatusType.UpstreamRenamed]     = "",
+    [StatusType.UpstreamTypeChanged] = "󱧶",
+    [StatusType.UpstreamUnmodified]  = " ",
+    [StatusType.UpstreamUnmerged]    = "",
+    [StatusType.UpstreamUntracked]   = " ",
+    [StatusType.UpstreamExternal]    = "",
+}
+```
 
 By default following highlight groups are used.
 

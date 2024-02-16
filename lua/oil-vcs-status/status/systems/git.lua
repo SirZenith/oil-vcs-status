@@ -1,7 +1,7 @@
 local config = require "oil-vcs-status.config"
 local log = require "oil-vcs-status.log"
 local status_const = require "oil-vcs-status.constant.status"
-local VcsSystem = require "oil-vcs-status.status.vcs_system"
+local VcsSystem = require "oil-vcs-status.status.systems.vcs_system"
 local util = require "oil-vcs-status.util"
 local path_util = require "oil-vcs-status.util.path"
 local table_util = require "oil-vcs-status.util.table"
@@ -40,12 +40,24 @@ local UPSTREAM_STATUS_MAP = {
     ["m"] = StatusType.UpstreamExternal,
 }
 
--- Map repo root path to VcsSystem object.
----@type table<string, oil-vcs-status.status.VcsSystem>
-local active_systems = {}
+local super = VcsSystem
+---@class oil-vcs-status.status.system.Git : oil-vcs-status.status.system.VcsSystem
+---@field index_lock_record table<string, boolean>
+local Git = util.inherit(super)
+Git.name = "git"
 
 ---@param root_dir string
-local function fs_watch_path_list_getter(root_dir)
+function Git:new(root_dir)
+    local obj = super.new(self, root_dir) --[[@as oil-vcs-status.status.system.Git]]
+
+    obj.index_lock_record = {}
+
+    return obj
+end
+
+function Git:fs_watch_path_list_getter()
+    local root_dir = self.root_dir
+
     local paths = { root_dir }
     local target = root_dir .. "/.git"
     if vim.fn.filereadable(target) ~= 1 then
@@ -77,14 +89,11 @@ local function fs_watch_path_list_getter(root_dir)
     return paths
 end
 
-local index_lock_record = {}
-
----@param system oil-vcs-status.status.VcsSystem
 ---@param filename string
----@param events { change: boolean | nil, rename: boolean | nil }
+---@param _ { change: boolean | nil, rename: boolean | nil }
 ---@return boolean
 ---@return string? reason
-local function fs_event_ignore_checker(system, filename, events)
+function Git:fs_event_ignore_checker(filename, _)
     if filename:find("%.git/.*index.lock") then
         return true, "is lock file"
     end
@@ -92,10 +101,12 @@ local function fs_event_ignore_checker(system, filename, events)
     if vim.fs.basename(filename) == ".git"
         or filename:find("%.git/modules/.+")
     then
-        local was_locked = index_lock_record[filename]
+        local record = self.index_lock_record
+
+        local was_locked = record[filename]
         local lock_file = filename .. "/index.lock"
         local is_locked = vim.fn.filereadable(lock_file) == 1
-        index_lock_record[filename] = is_locked
+        record[filename] = is_locked
 
         if is_locked then
             return true, "index locked"
@@ -105,7 +116,7 @@ local function fs_event_ignore_checker(system, filename, events)
             return true, "index lock clean up"
         end
     else
-        local lock_file = system.root_dir .. "/.git/index.lock"
+        local lock_file = self.root_dir .. "/.git/index.lock"
         local is_locked = vim.fn.filereadable(lock_file) == 1
         if is_locked then
             return true, "repo index locked"
@@ -115,9 +126,10 @@ local function fs_event_ignore_checker(system, filename, events)
     return false
 end
 
----@param status_tree oil-vcs-status.status.StatusTree
 ---@param stdout string
-local function load_status_data(status_tree, stdout)
+function Git:status_updater(stdout)
+    local status_tree = self.status_tree
+
     status_tree:reset()
 
     local lines = vim.split(stdout, "\r?\n")
@@ -155,9 +167,8 @@ local function load_status_data(status_tree, stdout)
     end
 end
 
----@param root_dir string
 ---@param callback fun(result: oil-vcs-status.util.CmdResult)
-local function status_cmd(root_dir, callback)
+function Git:status_cmd_runner(callback)
     local cmd = config.vcs_executable.git
     if vim.fn.executable(cmd) ~= 1 then
         callback {
@@ -171,7 +182,7 @@ local function status_cmd(root_dir, callback)
 
     local opt = {
         args = { "status", "--short", "--ignored" },
-        cwd = root_dir,
+        cwd = self.root_dir,
     }
 
     util.run_cmd(cmd, opt, callback)
@@ -185,22 +196,21 @@ local function find_repo_root(dir)
     return root_dir
 end
 
+-- Map repo root path to VcsSystem object.
+---@type table<string, oil-vcs-status.status.system.VcsSystem>
+local active_systems = {}
+
 ---@param dir string
----@return oil-vcs-status.status.VcsSystem?
+---@return oil-vcs-status.status.system.VcsSystem?
 function M.get_active_system(dir)
     local root_dir = find_repo_root(dir)
     if not root_dir then return nil end
 
     local system = active_systems[root_dir]
     if not system then
-        system = VcsSystem:new("git", root_dir)
+        system = Git:new(root_dir)
         active_systems[root_dir] = system
 
-        system.status_cmd_runner = status_cmd
-        system.status_updater = load_status_data
-
-        system.fs_watch_path_list_getter = fs_watch_path_list_getter
-        system.fs_event_ignore_checker = fs_event_ignore_checker
         system:init_fs_event_listener()
     end
 

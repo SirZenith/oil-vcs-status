@@ -2,8 +2,8 @@ local oil = require "oil"
 
 local config = require "oil-vcs-status.config"
 local log = require "oil-vcs-status.log"
-local status_git = require "oil-vcs-status.status.git"
-local status_svn = require "oil-vcs-status.status.svn"
+local status_git = require "oil-vcs-status.status.systems.git"
+local status_svn = require "oil-vcs-status.status.systems.svn"
 
 local api = vim.api
 
@@ -13,7 +13,7 @@ local api = vim.api
 
 ---@class oil-vcs-status.status.BufUpdateInfo
 ---@field dir string
----@field wait_set table<oil-vcs-status.status.VcsSystem, true>
+---@field wait_set table<oil-vcs-status.status.system.VcsSystem, true>
 
 local M = {}
 
@@ -56,22 +56,6 @@ local function get_oil_buffer_dir(bufnr)
     return path
 end
 
--- Check if a directory has status value update.
----@param dir string
----@return boolean
-local function check_dir_status_dirty(dir)
-    local is_dirty = false
-    for _, vcs in ipairs(VCS_LIST) do
-        local system = vcs.get_active_system(dir)
-        is_dirty = system and system:check_entry_dirty(dir) or false
-        if is_dirty then
-            break
-        end
-    end
-
-    return is_dirty
-end
-
 -- Write status symbols to given row.
 ---@param bufnr integer
 ---@param line integer
@@ -87,7 +71,7 @@ end
 -- Update status symbol for given entry line.
 ---@param bufnr integer
 ---@param line integer
----@param system oil-vcs-status.status.VcsSystem
+---@param system oil-vcs-status.status.system.VcsSystem
 local function update_entry_status(bufnr, line, system)
     local entry = oil.get_entry_on_line(bufnr, line)
     if not entry then return end
@@ -137,7 +121,7 @@ local function update_buffer_status_with_all_system(bufnr)
 end
 
 -- Try update all pending buffer after status value updated.
----@param system oil-vcs-status.status.VcsSystem
+---@param system oil-vcs-status.status.system.VcsSystem
 local function on_status_updated(system)
     for bufnr, info in pairs(buf_update_info) do
         local wait_set = info.wait_set
@@ -156,7 +140,7 @@ end
 
 -- File system event callback.
 ---@param err? string
----@param system oil-vcs-status.status.VcsSystem
+---@param system oil-vcs-status.status.system.VcsSystem
 local function on_fs_event(err, system)
     if err then
         log.warn(err)

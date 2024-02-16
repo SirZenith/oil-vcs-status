@@ -1,15 +1,10 @@
 local config = require "oil-vcs-status.config"
 local log = require "oil-vcs-status.log"
-local StatusTree = require "oil-vcs-status.status.status_tree"
+local StatusTree = require "oil-vcs-status.status.systems.status_tree"
 
 local loop = vim.loop
 
----@param root_dir string
-local function default_fs_watch_path_list_getter(root_dir)
-    return { root_dir }
-end
-
----@class oil-vcs-status.status.VcsSystem
+---@class oil-vcs-status.status.system.VcsSystem
 ---@field name string
 ---@field root_dir string
 ---@field is_dirty boolean
@@ -18,17 +13,17 @@ end
 ---@field status_tree oil-vcs-status.status.StatusTree
 --
 ---@field fs_event_handles? any[]
----@field fs_watch_path_list_getter? fun(root_dir: string): string[]
----@field fs_event_ignore_checker? fun(system: oil-vcs-status.status.VcsSystem, filename: string, events: { change: boolean | nil, rename: boolean | nil }): boolean, string?
 ---@field fs_event_trigger_time table<string, number>
 --
----@field status_cmd_runner? fun(root_dir: string, callback: fun(result: oil-vcs-status.util.CmdResult))
----@field status_updater? fun(status_tree: oil-vcs-status.status.StatusTree, stdout: string)
----@field fs_event_callback? fun(err?: string, system: oil-vcs-status.status.VcsSystem)
+---@field fs_event_callback? fun(err?: string, system: oil-vcs-status.status.system.VcsSystem)
 local VcsSystem = {}
-VcsSystem.__index = VcsSystem
+VcsSystem.name = "vcs system"
 
-function VcsSystem:new(name, root_dir)
+---@param root_dir string
+function VcsSystem:new(root_dir)
+    self.__index = self
+    local name = self.name
+
     log.trace("new", name, "repo at", root_dir)
 
     local obj = setmetatable({}, self)
@@ -48,9 +43,7 @@ end
 function VcsSystem:init_fs_event_listener()
     self:cancel_fs_event_listener()
 
-    local path_getter = self.fs_watch_path_list_getter or default_fs_watch_path_list_getter
-
-    local paths = path_getter(self.root_dir)
+    local paths = self:fs_watch_path_list_getter()
     if #paths == 0 then return end
 
     local handles = {}
@@ -99,6 +92,20 @@ function VcsSystem:cancel_fs_event_listener()
     self.fs_event_handles = nil
 end
 
+---@return string[]
+function VcsSystem:fs_watch_path_list_getter()
+    return { self.root_dir }
+end
+
+---@param filename string
+---@param events { change: boolean | nil, rename: boolean | nil }
+---@return boolean is_ignore
+---@return string? reason
+---@diagnostic disable-next-line: unused-local
+function VcsSystem:fs_event_ignore_checker(filename, events)
+    return false
+end
+
 ---@param err string?
 ---@param filename string
 ---@param events { change: boolean | nil, rename: boolean | nil }
@@ -109,22 +116,7 @@ function VcsSystem:on_fs_event(err, filename, events)
         return
     end
 
-    local ignore_checker = self.fs_event_ignore_checker
-    if ignore_checker then
-        local is_ignore, reason = ignore_checker(self, filename, events)
-        if is_ignore then
-            log.trace("event ignored:", filename, "-", reason)
-            return
-        end
-    end
-
-    if self.is_updating then
-        -- Status value update also trigger file system event. Ignore new event
-        -- when there is an ongoing update.
-        log.trace("status being updated, event skipped:", filename)
-        return
-    end
-
+    -- No matter this event is ignored or not, record its trigger time.
     local now = loop.now()
     local last_trigger_time = self.fs_event_trigger_time[filename]
     if last_trigger_time and now - last_trigger_time < config.fs_event_debounce then
@@ -133,7 +125,18 @@ function VcsSystem:on_fs_event(err, filename, events)
     end
     self.fs_event_trigger_time[filename] = now
 
-    self.is_dirty = true
+    -- Status value update also trigger file system event. Ignore new event when
+    -- there is an ongoing update.
+    if self.is_updating then
+        log.trace("status being updated, event skipped:", filename)
+        return
+    end
+
+    local is_ignore, reason = self:fs_event_ignore_checker(filename, events)
+    if is_ignore then
+        log.trace("event ignored:", filename, "-", reason)
+        return
+    end
 
     log.trace(
         self.name, "fs event",
@@ -141,6 +144,8 @@ function VcsSystem:on_fs_event(err, filename, events)
         "\nchange:", events.change or "false",
         "\nrename:", events.rename or "false"
     )
+
+    self.is_dirty = true
 
     local callback = self.fs_event_callback;
     if callback then
@@ -160,21 +165,9 @@ function VcsSystem:update_status(callback)
         return
     end
 
-    local cmd_runner = self.status_cmd_runner
-    if not cmd_runner then
-        callback("no status command binded with system: " .. self.name)
-        return
-    end
-
-    local status_updater = self.status_updater
-    if not status_updater then
-        callback("no status parser provided for system: " .. self.name)
-        return
-    end
-
     log.trace(self.name, "run status cmd")
     self.is_updating = true
-    cmd_runner(self.root_dir, function(result)
+    self:status_cmd_runner(function(result)
         self.is_updating = false
 
         if result.code ~= 0 then
@@ -185,7 +178,7 @@ function VcsSystem:update_status(callback)
 
         self.is_dirty = false
 
-        status_updater(self.status_tree, result.stdout)
+        self:status_updater(result.stdout)
         callback()
     end)
 end
@@ -243,6 +236,22 @@ end
 function VcsSystem:check_is_sub_dir(dir)
     local root_dir = self.root_dir
     return dir:sub(1, #root_dir) == root_dir
+end
+
+---@param callback fun(result: oil-vcs-status.util.CmdResult)
+function VcsSystem:status_cmd_runner(callback)
+    callback {
+        code = 1,
+        signal = 0,
+        stdout = "",
+        stderr = self.name .. ": empty status cmd implementation"
+    }
+end
+
+---@param stdout string
+---@diagnostic disable-next-line: unused-local
+function VcsSystem:status_updater(stdout)
+    log.warn(self.name .. ": empty status parser implementation")
 end
 
 return VcsSystem

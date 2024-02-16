@@ -78,4 +78,12 @@ function M.check_should_ignore_fs_event_by_ignore_map(ignore_map, filename, even
     return is_ignore
 end
 
+-- Inherit class table by deep copy
+---@param base_class table
+---@return table
+function M.inherit(base_class)
+    local sub_class = vim.deepcopy(base_class)
+    return sub_class
+end
+
 return M

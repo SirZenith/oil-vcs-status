@@ -1,7 +1,7 @@
 local config = require "oil-vcs-status.config"
 local log = require "oil-vcs-status.log"
 local status_const = require "oil-vcs-status.constant.status"
-local VcsSystem = require "oil-vcs-status.status.vcs_system"
+local VcsSystem = require "oil-vcs-status.status.systems.vcs_system"
 local util = require "oil-vcs-status.util"
 local path_util = require "oil-vcs-status.util.path"
 local table_util = require "oil-vcs-status.util.table"
@@ -25,41 +25,50 @@ local STATUS_MAP = {
     ["~"] = StatusType.TypeChanged,
 }
 
-IGNORE_FS_EVENT = {
-    -- [".svn/index.lock"] = true,
-}
+IGNORE_FS_EVENT = {}
 
--- Map repo root path to VcsSystem object.
----@type table<string, oil-vcs-status.status.VcsSystem>
-local active_systems = {}
+local super = VcsSystem
 
----@param system oil-vcs-status.status.VcsSystem
+---@class oil-vcs-status.status.system.Svn : oil-vcs-status.status.system.VcsSystem
+local Svn = util.inherit(super)
+Svn.name = "svn"
+
 ---@param filename string
 ---@param events { change: boolean | nil, rename: boolean | nil }
 ---@return boolean
-local function fs_event_ignore_checker(system, filename, events)
+function Svn:fs_event_ignore_checker(filename, events)
     if util.check_should_ignore_fs_event_by_ignore_map(IGNORE_FS_EVENT, filename, events) then
         return true
     end
 
-    --[[ if vim.fn.filereadable(system.root_dir .. "/.svn/index.lock") == 1 then
-        return true
-    end ]]
-
     return false
 end
 
----@param status_tree oil-vcs-status.status.StatusTree
 ---@param stdout string
-local function load_status_data(status_tree, stdout)
+function Svn:status_updater(stdout)
+    local status_tree = self.status_tree
+
     status_tree:reset()
 
     local lines = vim.split(stdout, "\r?\n")
     table_util.filter_in_place(lines, function(_, value)
-        return value ~= ""
+        if value == "" then
+            return false
+        end
+
+        -- ignore conflict detail information
+        if value:sub(1, 7) == "      >" then
+            return false
+        end
+
+        return true
     end)
 
     for _, line in ipairs(lines) do
+        if line == "Summary of conflicts:" then
+            break
+        end
+
         local local_status_str = line:sub(1, 1)
 
         local path = line:sub(9)
@@ -75,9 +84,8 @@ local function load_status_data(status_tree, stdout)
     end
 end
 
----@param root_dir string
 ---@param callback fun(result: oil-vcs-status.util.CmdResult)
-local function status_cmd(root_dir, callback)
+function Svn:status_cmd_runner(callback)
     local cmd = config.vcs_executable.svn
     if vim.fn.executable(cmd) ~= 1 then
         callback {
@@ -91,7 +99,7 @@ local function status_cmd(root_dir, callback)
 
     local opt = {
         args = { "status" },
-        cwd = root_dir,
+        cwd = self.root_dir,
     }
 
     util.run_cmd(cmd, opt, callback)
@@ -105,21 +113,20 @@ local function find_repo_root(dir)
     return root_dir
 end
 
+-- Map repo root path to VcsSystem object.
+---@type table<string, oil-vcs-status.status.system.VcsSystem>
+local active_systems = {}
+
 ---@param dir string
----@return oil-vcs-status.status.VcsSystem?
+---@return oil-vcs-status.status.system.VcsSystem?
 function M.get_active_system(dir)
     local root_dir = find_repo_root(dir)
     if not root_dir then return nil end
 
     local system = active_systems[root_dir]
     if not system then
-        system = VcsSystem:new("svn", root_dir)
+        system = Svn:new(root_dir)
         active_systems[root_dir] = system
-
-        system.status_cmd_runner = status_cmd
-        system.status_updater = load_status_data
-
-        system.fs_event_ignore_checker = fs_event_ignore_checker
         system:init_fs_event_listener()
     end
 

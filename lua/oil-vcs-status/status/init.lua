@@ -189,7 +189,7 @@ local function on_fs_event(err, system)
     end
 
     if need_update then
-        log.trace(system.name, "fs event:", system.root_dir)
+        log.trace(system.name, "update buffer by fs event:", system.root_dir)
         system:update_status(function(update_err)
             if update_err then
                 log.warn(update_err)

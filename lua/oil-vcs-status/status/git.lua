@@ -22,8 +22,7 @@ local STATUS_MAP = {
     ["R"] = StatusType.Renamed,
     ["C"] = StatusType.Copied,
     ["U"] = StatusType.Unmerged,
-
-    ["m"] = StatusType.Modified,
+    ["m"] = StatusType.External,
 }
 
 ---@type table<string, oil-vcs-status.StatusType>
@@ -38,29 +37,79 @@ local UPSTREAM_STATUS_MAP = {
     ["R"] = StatusType.UpstreamRenamed,
     ["C"] = StatusType.UpstreamCopied,
     ["U"] = StatusType.UpstreamUnmerged,
-
-    ["m"] = StatusType.UpstreamModified,
-}
-
-local IGNORE_FS_EVENT = {
-    [".git/index.lock"] = true,
+    ["m"] = StatusType.UpstreamExternal,
 }
 
 -- Map repo root path to VcsSystem object.
 ---@type table<string, oil-vcs-status.status.VcsSystem>
 local active_systems = {}
 
+---@param root_dir string
+local function fs_watch_path_list_getter(root_dir)
+    local paths = { root_dir }
+    local target = root_dir .. "/.git"
+    if vim.fn.filereadable(target) ~= 1 then
+        return paths
+    end
+
+    local file, open_err = io.open(target, "r")
+    if not file or open_err then
+        return paths
+    end
+
+    local prefix = "gitdir: "
+    local prefix_len = #prefix
+    local real_index_dir_path
+    for line in file:lines() do
+        if line:sub(1, prefix_len) == prefix then
+            real_index_dir_path = line:sub(prefix_len + 1)
+            break
+        end
+    end
+
+    if real_index_dir_path then
+        real_index_dir_path = root_dir .. "/" .. real_index_dir_path
+        real_index_dir_path = vim.fn.fnamemodify(real_index_dir_path, ":p")
+        real_index_dir_path = vim.fs.normalize(real_index_dir_path)
+        paths[#paths + 1] = real_index_dir_path
+    end
+
+    return paths
+end
+
+local index_lock_record = {}
+
 ---@param system oil-vcs-status.status.VcsSystem
 ---@param filename string
 ---@param events { change: boolean | nil, rename: boolean | nil }
 ---@return boolean
+---@return string? reason
 local function fs_event_ignore_checker(system, filename, events)
-    if util.check_should_ignore_fs_event_by_ignore_map(IGNORE_FS_EVENT, filename, events) then
-        return true
+    if filename:find("%.git/.*index.lock") then
+        return true, "is lock file"
     end
 
-    if vim.fn.filereadable(system.root_dir .. "/.git/index.lock") == 1 then
-        return true
+    if vim.fs.basename(filename) == ".git"
+        or filename:find("%.git/modules/.+")
+    then
+        local was_locked = index_lock_record[filename]
+        local lock_file = filename .. "/index.lock"
+        local is_locked = vim.fn.filereadable(lock_file) == 1
+        index_lock_record[filename] = is_locked
+
+        if is_locked then
+            return true, "index locked"
+        end
+
+        if was_locked then
+            return true, "index lock clean up"
+        end
+    else
+        local lock_file = system.root_dir .. "/.git/index.lock"
+        local is_locked = vim.fn.filereadable(lock_file) == 1
+        if is_locked then
+            return true, "repo index locked"
+        end
     end
 
     return false
@@ -150,6 +199,7 @@ function M.get_active_system(dir)
         system.status_cmd_runner = status_cmd
         system.status_updater = load_status_data
 
+        system.fs_watch_path_list_getter = fs_watch_path_list_getter
         system.fs_event_ignore_checker = fs_event_ignore_checker
         system:init_fs_event_listener()
     end

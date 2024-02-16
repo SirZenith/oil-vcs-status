@@ -9,6 +9,11 @@ local M = {
         svn = "svn",
     },
 
+    -- If trigger time between two file system event of the same entry is less
+    -- than this value, newer event will be ignored, unit: milisecond.
+    ---@type integer
+    fs_event_debounce = 500,
+
     -- Sign character used by each status.
     ---@type table<oil-vcs-status.StatusType, string>
     status_symbol = {

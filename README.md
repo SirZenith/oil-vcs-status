@@ -211,6 +211,9 @@ require "oil-vcs-status".setup {
 This plugin use different character and highlight groups for local and upstream
 status.
 
+Default symbol for each status are just plain letters, nothing fancy. You can
+change them into emojis or nerd font icons if you'd like to.
+
 By default following highlight groups are used.
 
 - Local status

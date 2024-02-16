@@ -1,4 +1,4 @@
-# oil-vcs-status.nvim
+# oil-vcs-status
 
 ## Overview
 

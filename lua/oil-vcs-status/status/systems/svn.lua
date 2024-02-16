@@ -25,6 +25,11 @@ local STATUS_MAP = {
     ["~"] = StatusType.TypeChanged,
 }
 
+local UPSTREAM_STATUS_MAP = {
+    [" "] = StatusType.UpstreamUnmodified,
+    ["C"] = StatusType.UpstreamUnmerged,
+}
+
 IGNORE_FS_EVENT = {}
 
 local super = VcsSystem
@@ -70,16 +75,22 @@ function Svn:status_updater(stdout)
         end
 
         local local_status_str = line:sub(1, 1)
+        local remote_status_str = line:sub(7, 7)
 
         local path = line:sub(9)
 
         local local_status = STATUS_MAP[local_status_str]
         if not local_status then
-            log.warn(("unknown git status indicator: %q"):format(local_status_str))
+            log.warn(("unknown svn status indicator: %q"):format(local_status_str))
         end
 
-        if local_status then
-            status_tree:update_child(path, local_status, StatusType.Unmodified)
+        local remote_status = UPSTREAM_STATUS_MAP[remote_status_str]
+        if not local_status then
+            log.warn(("unknown svn status indicator: %q"):format(remote_status_str))
+        end
+
+        if local_status and remote_status then
+            status_tree:update_child(path, local_status, remote_status)
         end
     end
 end

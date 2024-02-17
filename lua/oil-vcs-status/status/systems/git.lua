@@ -6,6 +6,7 @@ local util = require "oil-vcs-status.util"
 local path_util = require "oil-vcs-status.util.path"
 local table_util = require "oil-vcs-status.util.table"
 
+local loop = vim.loop
 local StatusType = status_const.StatusType
 
 local M = {}
@@ -42,6 +43,7 @@ local UPSTREAM_STATUS_MAP = {
 
 local super = VcsSystem
 ---@class oil-vcs-status.status.system.Git : oil-vcs-status.status.system.VcsSystem
+---@field last_status_update_time integer
 ---@field index_lock_record table<string, boolean>
 local Git = util.inherit(super)
 Git.name = "git"
@@ -50,6 +52,7 @@ Git.name = "git"
 function Git:new(root_dir)
     local obj = super.new(self, root_dir) --[[@as oil-vcs-status.status.system.Git]]
 
+    obj.last_status_update_time = 0
     obj.index_lock_record = {}
 
     return obj
@@ -94,6 +97,12 @@ end
 ---@return boolean
 ---@return string? reason
 function Git:fs_event_ignore_checker(filename, _)
+    local now = loop.now()
+    local update_debounce = config.vcs_specific.git.status_update_debounce
+    if now - self.last_status_update_time < update_debounce then
+        return true, "update cool down"
+    end
+
     if filename:find("%.git/.*index.lock") then
         return true, "is lock file"
     end
@@ -131,6 +140,9 @@ function Git:status_updater(stdout)
     local status_tree = self.status_tree
 
     status_tree:reset()
+
+    log.trace(self.name, "new status data:", self.root_dir)
+    self.last_status_update_time = loop.now()
 
     local lines = vim.split(stdout, "\r?\n")
     table_util.filter_in_place(lines, function(_, value)

@@ -146,6 +146,16 @@ require "oil-vcs-status".setup {
 
         [StatusType.Unmerged]            = 15,
     },
+
+    vcs_specific = {
+        git = {
+            -- `git status` command triggers file system event when it finished.
+            -- Plugin will ignore file system event in this amount of time, after
+            -- `git status` finishes its executation. Unit: milisecond.
+            ---@type integer
+            status_update_debounce = 200,
+        }
+    },
 }
 ```
 

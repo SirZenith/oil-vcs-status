@@ -107,9 +107,18 @@ function VcsSystem:fs_event_ignore_checker(filename, events)
 end
 
 ---@param err string?
----@param filename string
----@param events { change: boolean | nil, rename: boolean | nil }
+---@param filename string?
+---@param events ({ change: boolean | nil, rename: boolean | nil })?
 function VcsSystem:on_fs_event(err, filename, events)
+    local callback = self.fs_event_callback;
+
+    if err or not filename or not events then
+        if callback then
+            callback(err or "fs event error", self)
+        end
+        return
+    end
+
     if vim.fn.isdirectory(self.root_dir) ~= 1 then
         self:cancel_fs_event_listener()
         self.is_deleted = true
@@ -118,12 +127,13 @@ function VcsSystem:on_fs_event(err, filename, events)
 
     -- No matter this event is ignored or not, record its trigger time.
     local now = loop.now()
-    local last_trigger_time = self.fs_event_trigger_time[filename]
+    local trigger_record = self.fs_event_trigger_time
+    local last_trigger_time = trigger_record[filename]
     if last_trigger_time and now - last_trigger_time < config.fs_event_debounce then
         log.trace("trigger cool down, event skipped:", filename)
         return
     end
-    self.fs_event_trigger_time[filename] = now
+    trigger_record[filename] = now
 
     -- Status value update also trigger file system event. Ignore new event when
     -- there is an ongoing update.
@@ -147,7 +157,6 @@ function VcsSystem:on_fs_event(err, filename, events)
 
     self.is_dirty = true
 
-    local callback = self.fs_event_callback;
     if callback then
         callback(err, self)
     end

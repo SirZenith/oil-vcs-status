@@ -143,6 +143,7 @@ end
 ---@param system oil-vcs-status.status.system.VcsSystem
 local function on_fs_event(err, system)
     if err then
+        log.trace("error occured in fs watcher:", system.root_dir)
         log.warn(err)
         return
     end

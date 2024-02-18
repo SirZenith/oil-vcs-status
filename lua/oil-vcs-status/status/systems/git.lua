@@ -141,7 +141,6 @@ function Git:status_updater(stdout)
 
     status_tree:reset()
 
-    log.trace(self.name, "new status data:", self.root_dir)
     self.last_status_update_time = loop.now()
 
     local lines = vim.split(stdout, "\r?\n")

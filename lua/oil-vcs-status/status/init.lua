@@ -110,6 +110,7 @@ local function update_buffer_status_with_all_system(bufnr)
     for _, vcs in ipairs(VCS_LIST) do
         local system = vcs.get_active_system(dir)
         if system then
+            log.trace(system.name, "updating status in:", bufnr)
             system:clear_entry_dirty(dir)
 
             local line_cnt = api.nvim_buf_line_count(bufnr)

@@ -187,6 +187,7 @@ function VcsSystem:update_status(callback)
 
         self.is_dirty = false
 
+        log.trace(self.name, "new status data:", self.root_dir)
         self:status_updater(result.stdout)
         callback()
     end)

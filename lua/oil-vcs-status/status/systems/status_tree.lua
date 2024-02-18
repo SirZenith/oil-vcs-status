@@ -67,6 +67,7 @@ end
 ---@param local_status oil-vcs-status.StatusType
 ---@param remote_status oil-vcs-status.StatusType
 function StatusTree:update_child(path, local_status, remote_status)
+    path = vim.fs.normalize(path)
     local segments = vim.split(path, "/")
 
     local walker = self

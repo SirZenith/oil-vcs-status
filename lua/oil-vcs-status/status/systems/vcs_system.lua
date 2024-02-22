@@ -112,7 +112,8 @@ end
 function VcsSystem:on_fs_event(err, filename, events)
     local callback = self.fs_event_callback;
 
-    if err or not filename or not events then
+    filename = filename or self.root_dir
+    if err or not events then
         if callback then
             callback(err or "fs event error", self)
         end

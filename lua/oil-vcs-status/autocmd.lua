@@ -1,7 +1,7 @@
 local status = require "oil-vcs-status.status"
 
 local api = vim.api
-local loop = vim.loop
+local loop = vim.uv or vim.loop
 
 local M = {}
 

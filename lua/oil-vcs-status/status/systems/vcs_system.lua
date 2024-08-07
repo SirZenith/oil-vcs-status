@@ -2,7 +2,7 @@ local config = require "oil-vcs-status.config"
 local log = require "oil-vcs-status.log"
 local StatusTree = require "oil-vcs-status.status.systems.status_tree"
 
-local loop = vim.loop
+local loop = vim.uv or vim.loop
 
 ---@class oil-vcs-status.status.system.VcsSystem
 ---@field name string
@@ -52,7 +52,7 @@ function VcsSystem:init_fs_event_listener()
     }
 
     for _, path in ipairs(paths) do
-        local handle, handle_err = vim.loop.new_fs_event()
+        local handle, handle_err = loop.new_fs_event()
         if not handle then
             log.warn("failed to create fs event handle", handle_err)
             goto continue

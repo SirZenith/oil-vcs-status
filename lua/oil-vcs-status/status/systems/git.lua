@@ -6,7 +6,7 @@ local util = require "oil-vcs-status.util"
 local path_util = require "oil-vcs-status.util.path"
 local table_util = require "oil-vcs-status.util.table"
 
-local loop = vim.loop
+local loop = vim.uv or vim.loop
 local StatusType = status_const.StatusType
 
 local M = {}

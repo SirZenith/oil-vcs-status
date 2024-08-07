@@ -1,3 +1,9 @@
 local user = require "user"
 
-user.lsp.load_extra_plugins:append("oil.nvim")
+user.lsp = {
+    __newentry = true,
+    load_extra_plugins = {
+        __append = true,
+        "oil.nvim"
+    }
+}

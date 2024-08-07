@@ -1,4 +1,4 @@
-local loop = vim.loop
+local loop = vim.uv or vim.loop
 
 local M = {}
 

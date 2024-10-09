@@ -72,6 +72,8 @@ function Git:fs_watch_path_list_getter()
         return paths
     end
 
+    local status_root_dir = path_util.get_actual_entry_path(root_dir)
+
     local prefix = "gitdir: "
     local prefix_len = #prefix
     local real_index_dir_path
@@ -83,7 +85,7 @@ function Git:fs_watch_path_list_getter()
     end
 
     if real_index_dir_path then
-        real_index_dir_path = root_dir .. "/" .. real_index_dir_path
+        real_index_dir_path = status_root_dir .. "/" .. real_index_dir_path
         real_index_dir_path = vim.fn.fnamemodify(real_index_dir_path, ":p")
         real_index_dir_path = vim.fs.normalize(real_index_dir_path)
         paths[#paths + 1] = real_index_dir_path

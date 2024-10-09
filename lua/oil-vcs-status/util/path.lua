@@ -1,5 +1,7 @@
 local M = {}
 
+local uv = vim.uv or vim.loop
+
 ---@param path string
 ---@param names string[]
 ---@return boolean
@@ -63,6 +65,35 @@ function M.find_root_by_entry(path, names)
     root = vim.fs.normalize(root)
 
     return root
+end
+
+-- Internal function, takes symlink path recursively resolve it's target path.
+---@param path string
+---@param recursion_level integer
+---@return string?
+local function get_actual_entry_path_recursive(path, recursion_level)
+    local max_level = 50
+    if recursion_level > max_level then
+        return
+    end
+
+    local info = uv.fs_lstat(path)
+    if info.type ~= "link" then
+        return path
+    end
+
+    local target = uv.fs_readlink(path)
+
+    return get_actual_entry_path_recursive(target, recursion_level + 1)
+end
+
+-- Takes path of symlink and returns the path it's pointing to. If this symlink
+-- points to another symlink, then this function will be called recursively to
+-- resolve file path to final non symlink entry.
+---@param path string
+---@return string
+function M.get_actual_entry_path(path)
+    return get_actual_entry_path_recursive(path, 1) or path
 end
 
 return M

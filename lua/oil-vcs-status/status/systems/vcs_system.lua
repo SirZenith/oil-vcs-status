@@ -163,6 +163,10 @@ function VcsSystem:on_fs_event(err, filename, events)
     end
 end
 
+function VcsSystem:mark_status_dirty()
+    self.is_dirty = true
+end
+
 ---@param callback fun(err?: string)
 function VcsSystem:update_status(callback)
     if not self.is_dirty then

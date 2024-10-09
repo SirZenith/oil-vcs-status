@@ -226,4 +226,17 @@ function M.update_status(bufnr)
     end
 end
 
+---@param file string
+function M.on_file_buf_write(file)
+    local dir = vim.fs.dirname(file)
+
+    for _, vcs in ipairs(VCS_LIST) do
+        local system = vcs.get_active_system(dir)
+        if system then
+            log.trace("bufwrite effect:", system.name)
+            system:mark_status_dirty()
+        end
+    end
+end
+
 return M

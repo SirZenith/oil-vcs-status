@@ -44,6 +44,7 @@ end
 function M.setup_autocmd()
     local augroup = api.nvim_create_augroup(AUGROUP_NAME, { clear = true })
 
+    -- update oil buffer when buffer gets modified
     api.nvim_create_autocmd("FileType", {
         group = augroup,
         pattern = "oil",
@@ -53,11 +54,23 @@ function M.setup_autocmd()
         end,
     })
 
+    -- update status after entering oil buffer
     api.nvim_create_autocmd("BufEnter", {
         group = augroup,
         callback = function(args)
             local bufnr = args.buf
             status.update_status(bufnr)
+        end,
+    })
+
+    -- mark system status dirty after write to local file
+    api.nvim_create_autocmd("BufWritePost", {
+        group = augroup,
+        callback = function(args)
+            local file = args.file
+            if file then
+                status.on_file_buf_write(file)
+            end
         end,
     })
 end

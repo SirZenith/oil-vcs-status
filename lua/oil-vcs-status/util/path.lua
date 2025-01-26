@@ -78,6 +78,10 @@ local function get_actual_entry_path_recursive(path, recursion_level)
     end
 
     local info = uv.fs_lstat(path)
+    if not info then
+        return
+    end
+
     if info.type ~= "link" then
         return path
     end

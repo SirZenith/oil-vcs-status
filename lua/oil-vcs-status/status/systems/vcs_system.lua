@@ -2,7 +2,7 @@ local config = require "oil-vcs-status.config"
 local log = require "oil-vcs-status.log"
 local StatusTree = require "oil-vcs-status.status.systems.status_tree"
 
-local loop = vim.uv or vim.loop
+local uv = vim.uv or vim.loop
 
 ---@class oil-vcs-status.status.system.VcsSystem
 ---@field name string
@@ -13,7 +13,8 @@ local loop = vim.uv or vim.loop
 ---@field status_tree oil-vcs-status.status.StatusTree
 --
 ---@field fs_event_handles? any[]
----@field fs_event_trigger_time table<string, number>
+---@field fs_timer_pool uv.uv_timer_t[]
+---@field fs_debounce_timer_tbl table<string, uv.uv_timer_t>
 --
 ---@field fs_event_callback? fun(err?: string, system: oil-vcs-status.status.system.VcsSystem)
 local VcsSystem = {}
@@ -35,9 +36,45 @@ function VcsSystem:new(root_dir)
     obj.is_updating = false
     obj.status_tree = StatusTree:new(("<%s root>"):format(name))
 
-    obj.fs_event_trigger_time = {}
+    obj.fs_timer_pool = {}
+    obj.fs_debounce_timer_tbl = {}
 
     return obj
+end
+
+---@param path string
+---@return uv.uv_timer_t?
+---@return string? err
+function VcsSystem:get_fs_debounce_timer(path)
+    local timer = self.fs_debounce_timer_tbl[path] --[[@as uv.uv_timer_t?]]
+    if timer then
+        return timer
+    end
+
+    local err
+    local pool = self.fs_timer_pool
+    if #pool > 0 then
+        timer = table.remove(pool)
+    else
+        timer, err = uv.new_timer()
+    end
+
+    if timer then
+        self.fs_debounce_timer_tbl[path] = timer
+    end
+
+    return timer, err
+end
+
+---@param path string
+function VcsSystem:put_fs_debounce_timer(path)
+    local timer = self.fs_debounce_timer_tbl[path]
+    if not timer then return end
+
+    self.fs_debounce_timer_tbl[path] = nil
+
+    timer:stop()
+    table.insert(self.fs_timer_pool, timer)
 end
 
 function VcsSystem:init_fs_event_listener()
@@ -52,7 +89,7 @@ function VcsSystem:init_fs_event_listener()
     }
 
     for _, path in ipairs(paths) do
-        local handle, handle_err = loop.new_fs_event()
+        local handle, handle_err = uv.new_fs_event()
         if not handle then
             log.warn("failed to create fs event handle", handle_err)
             goto continue
@@ -63,8 +100,22 @@ function VcsSystem:init_fs_event_listener()
                 filename = path .. "/" .. filename
                 filename = vim.fn.fnamemodify(filename, ":p")
                 filename = vim.fs.normalize(filename)
+            else
+                filename = filename or self.root_dir
             end
-            self:on_fs_event(callback_err, filename, events)
+
+
+            local timer, timer_err = self:get_fs_debounce_timer(filename)
+            if not timer or timer_err then
+                log.warn("FS event debounce timer error:", timer_err or "unknown error")
+                self:on_fs_event(callback_err, filename, events)
+                return
+            end
+
+            timer:start(config.fs_event_debounce, 0, vim.schedule_wrap(function()
+                self:put_fs_debounce_timer(filename)
+                self:on_fs_event(callback_err, filename, events)
+            end))
         end)
 
         local _, event_err = handle:start(path, flags, callback)
@@ -107,12 +158,11 @@ function VcsSystem:fs_event_ignore_checker(filename, events)
 end
 
 ---@param err string?
----@param filename string?
+---@param filename string
 ---@param events ({ change: boolean | nil, rename: boolean | nil })?
 function VcsSystem:on_fs_event(err, filename, events)
-    local callback = self.fs_event_callback;
+    local callback = self.fs_event_callback
 
-    filename = filename or self.root_dir
     if err or not events then
         if callback then
             callback(err or "fs event error", self)
@@ -125,16 +175,6 @@ function VcsSystem:on_fs_event(err, filename, events)
         self.is_deleted = true
         return
     end
-
-    -- No matter this event is ignored or not, record its trigger time.
-    local now = loop.now()
-    local trigger_record = self.fs_event_trigger_time
-    local last_trigger_time = trigger_record[filename]
-    if last_trigger_time and now - last_trigger_time < config.fs_event_debounce then
-        log.trace("trigger cool down, event skipped:", filename)
-        return
-    end
-    trigger_record[filename] = now
 
     -- Status value update also trigger file system event. Ignore new event when
     -- there is an ongoing update.
@@ -159,7 +199,7 @@ function VcsSystem:on_fs_event(err, filename, events)
     self.is_dirty = true
 
     if callback then
-        callback(err, self)
+        vim.schedule(function() callback(err, self) end)
     end
 end
 

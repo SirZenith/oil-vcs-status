@@ -90,7 +90,7 @@ function M.setup_autocmd()
     api.nvim_create_autocmd("BufWritePost", {
         group = augroup,
         callback = function(args)
-            local file = args.file
+            local file = args.match
             if file then
                 status.on_file_buf_write(file)
             end

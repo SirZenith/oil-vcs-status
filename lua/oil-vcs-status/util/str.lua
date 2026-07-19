@@ -33,4 +33,22 @@ function M.get_time_str(now)
     return time_str
 end
 
+-- remove surround double quote or single quote from string.
+---@param str string
+function M.unquote(str)
+    local len = #str
+    if len <= 1 then
+        return str
+    end
+
+    local first, last = str:sub(1, 1), str:sub(len, len)
+    if first == "\"" and last == "\"" then
+        str = str:sub(2, len - 1):gsub("\\\"", "\"")
+    elseif first == "'" and last == "'" then
+        str = str:sub(2, len - 1):gsub("\\'", "'")
+    end
+
+    return str
+end
+
 return M

@@ -4,6 +4,7 @@ local status_const = require "oil-vcs-status.constant.status"
 local VcsSystem = require "oil-vcs-status.status.systems.vcs_system"
 local util = require "oil-vcs-status.util"
 local path_util = require "oil-vcs-status.util.path"
+local str_util = require "oil-vcs-status.util.str"
 local table_util = require "oil-vcs-status.util.table"
 
 local loop = vim.uv or vim.loop
@@ -174,7 +175,7 @@ function Git:status_updater(stdout)
 
         if remote_status and local_status then
             for _, path in ipairs(paths) do
-                status_tree:update_child(path, local_status, remote_status)
+                status_tree:update_child(str_util.unquote(path), local_status, remote_status)
             end
         end
     end

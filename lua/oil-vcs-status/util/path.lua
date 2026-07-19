@@ -100,4 +100,25 @@ function M.get_actual_entry_path(path)
     return get_actual_entry_path_recursive(path, 1) or path
 end
 
+-- Append all child and grand child directory of given path to `list`.
+---@param list string[]
+---@param path string
+function M.append_all_child_dirs(list, path)
+    local handle, err = uv.fs_scandir(path)
+    if not handle or err then
+        return
+    end
+
+    local name = uv.fs_scandir_next(handle)
+    while name do
+        local child_path = vim.fs.joinpath(path, name)
+        if vim.fn.isdirectory(child_path) == 1 then
+            table.insert(list, child_path)
+            M.append_all_child_dirs(list, child_path)
+        end
+
+        name = uv.fs_scandir_next(handle)
+    end
+end
+
 return M

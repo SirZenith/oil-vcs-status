@@ -1,5 +1,6 @@
 local config = require "oil-vcs-status.config"
 local log = require "oil-vcs-status.log"
+local path_util = require "oil-vcs-status.util.path"
 local StatusTree = require "oil-vcs-status.status.systems.status_tree"
 
 local uv = vim.uv or vim.loop
@@ -12,7 +13,8 @@ local uv = vim.uv or vim.loop
 ---@field is_updating boolean
 ---@field status_tree oil-vcs-status.status.StatusTree
 --
----@field fs_event_handles? any[]
+---@field fs_event_pool uv.uv_fs_event_t[]
+---@field fs_event_handle_tbl table<string, uv.uv_fs_event_t>
 ---@field fs_timer_pool uv.uv_timer_t[]
 ---@field fs_debounce_timer_tbl table<string, uv.uv_timer_t>
 --
@@ -36,10 +38,47 @@ function VcsSystem:new(root_dir)
     obj.is_updating = false
     obj.status_tree = StatusTree:new(("<%s root>"):format(name))
 
+    obj.fs_event_pool = {}
+    obj.fs_event_handle_tbl = {}
     obj.fs_timer_pool = {}
     obj.fs_debounce_timer_tbl = {}
 
     return obj
+end
+
+---@param path string
+---@return uv.uv_fs_event_t?
+---@return string? err
+function VcsSystem:get_fs_event_handle(path)
+    local handle = self.fs_event_handle_tbl[path] --[[@as uv.uv_fs_event_t?]]
+    if handle then
+        return handle
+    end
+
+    local err
+    local pool = self.fs_event_pool
+    if #pool > 0 then
+        handle = table.remove(pool)
+    else
+        handle, err = uv.new_fs_event()
+    end
+
+    if handle then
+        self.fs_event_handle_tbl[path] = handle
+    end
+
+    return handle, err
+end
+
+---@param path string
+function VcsSystem:put_fs_event_handle(path)
+    local handle = self.fs_event_handle_tbl[path]
+    if not handle then return end
+
+    self.fs_event_handle_tbl[path] = nil
+
+    handle:stop()
+    table.insert(self.fs_event_pool, handle)
 end
 
 ---@param path string
@@ -81,21 +120,33 @@ function VcsSystem:init_fs_event_listener()
     self:cancel_fs_event_listener()
 
     local paths = self:fs_watch_path_list_getter()
-    if #paths == 0 then return end
+    local cnt = #paths
+    if cnt == 0 then return end
 
-    local handles = {}
     local flags = {
         recursive = true,
     }
 
+    -- libuv does not support recursive FS event on Linux, have to do it manually
+    if vim.fn.has("linux") then
+        flags.recursive = nil
+
+        for i = 1, cnt do
+            path_util.append_all_child_dirs(paths, paths[i])
+        end
+    end
+
     for _, path in ipairs(paths) do
-        local handle, handle_err = uv.new_fs_event()
+        local handle, handle_err = self:get_fs_event_handle(path)
         if not handle then
-            log.warn("failed to create fs event handle", handle_err)
+            log.warn("failed to create fs event handle", handle_err or "unknown error")
             goto continue
         end
 
         local callback = vim.schedule_wrap(function(callback_err, filename, events)
+            -- TODO: check for directory removal, and unregister event listener
+            -- for deleted directory.
+
             if filename then
                 filename = path .. "/" .. filename
                 filename = vim.fn.fnamemodify(filename, ":p")
@@ -120,27 +171,26 @@ function VcsSystem:init_fs_event_listener()
 
         local _, event_err = handle:start(path, flags, callback)
         if event_err then
-            log.warn("failed to watch vcs directory", event_err)
+            log.warn("failed to watch vcs directory", path, ":", event_err)
             goto continue
         end
 
         log.trace(self.name, "watching path:", path)
-        handles[#handles + 1] = handle
+
         ::continue::
     end
-
-    self.fs_event_handles = handles
 end
 
 function VcsSystem:cancel_fs_event_listener()
-    local handles = self.fs_event_handles
-    if not handles then return end
+    local handles = self.fs_event_handle_tbl
+    local pool = self.fs_event_pool
 
-    for _, handle in ipairs(handles) do
+    for _, handle in pairs(handles) do
         handle:stop()
+        table.insert(pool, handle)
     end
 
-    self.fs_event_handles = nil
+    self.fs_event_handle_tbl = {}
 end
 
 ---@return string[]

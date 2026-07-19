@@ -90,9 +90,7 @@ local function merge_config_tbl(dst, src)
     for k, v in pairs(src) do
         local old_v = dst[k]
 
-        if not old_v then
-            dst[k] = v
-        elseif type(old_v) ~= "table" then
+        if type(old_v) ~= "table" then
             dst[k] = v
         else
             merge_config_tbl(old_v, v)
@@ -108,8 +106,6 @@ function M.init()
 
     autocmd.setup_autocmd()
     setup_defualt_highlight()
-
-    status.update_status(0)
 end
 
 ---@param opts? table

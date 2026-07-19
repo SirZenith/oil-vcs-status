@@ -124,11 +124,11 @@ function VcsSystem:init_fs_event_listener()
     if cnt == 0 then return end
 
     local flags = {
-        recursive = true,
+        recursive = config.fs_event_recursive,
     }
 
     -- libuv does not support recursive FS event on Linux, have to do it manually
-    if vim.fn.has("linux") == 1 then
+    if flags.recursive and vim.fn.has("linux") == 1 then
         flags.recursive = nil
 
         for i = 1, cnt do
@@ -197,10 +197,12 @@ end
 ---@param path string
 ---@param events { change: boolean?, rename: boolean? }
 function VcsSystem:_update_fs_event_listener(path, events)
-    if not events.rename then return end
-
-    -- only linux needs manual recursive fs event listener handling
-    if vim.fn.has("linux") ~= 1 then return end
+    if not events.rename
+        or not config.fs_event_recursive
+        or vim.fn.has("linux") ~= 1
+    then
+        return
+    end
 
     local handle = self.fs_event_handle_tbl[path]
 

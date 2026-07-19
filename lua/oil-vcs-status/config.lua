@@ -13,6 +13,13 @@ local M = {
     -- than this value, newer event will be ignored, unit: milisecond.
     ---@type integer
     fs_event_debounce = 500,
+    -- Wheather to listen file system events recursively for every directory under
+    -- repository root. Currently recursive listening on Linux is implemented by
+    -- watching every directory under repository root, macOS and Windows are natively
+    -- supported by libuv.
+    -- You can turn it off if it slows your editor down.
+    ---@type boolean
+    fs_event_recursive = true,
 
     -- Sign character used by each status.
     ---@type table<oil-vcs-status.StatusType, string>

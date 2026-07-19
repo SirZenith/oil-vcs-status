@@ -103,10 +103,11 @@ end
 -- Append all child and grand child directory of given path to `list`.
 ---@param list string[]
 ---@param path string
+---@return string[] list
 function M.append_all_child_dirs(list, path)
     local handle, err = uv.fs_scandir(path)
     if not handle or err then
-        return
+        return list
     end
 
     local name = uv.fs_scandir_next(handle)
@@ -119,6 +120,8 @@ function M.append_all_child_dirs(list, path)
 
         name = uv.fs_scandir_next(handle)
     end
+
+    return list
 end
 
 return M

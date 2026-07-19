@@ -128,7 +128,7 @@ function VcsSystem:init_fs_event_listener()
     }
 
     -- libuv does not support recursive FS event on Linux, have to do it manually
-    if vim.fn.has("linux") then
+    if vim.fn.has("linux") == 1 then
         flags.recursive = nil
 
         for i = 1, cnt do
@@ -137,47 +137,7 @@ function VcsSystem:init_fs_event_listener()
     end
 
     for _, path in ipairs(paths) do
-        local handle, handle_err = self:get_fs_event_handle(path)
-        if not handle then
-            log.warn("failed to create fs event handle", handle_err or "unknown error")
-            goto continue
-        end
-
-        local callback = vim.schedule_wrap(function(callback_err, filename, events)
-            -- TODO: check for directory removal, and unregister event listener
-            -- for deleted directory.
-
-            if filename then
-                filename = path .. "/" .. filename
-                filename = vim.fn.fnamemodify(filename, ":p")
-                filename = vim.fs.normalize(filename)
-            else
-                filename = filename or self.root_dir
-            end
-
-
-            local timer, timer_err = self:get_fs_debounce_timer(filename)
-            if not timer or timer_err then
-                log.warn("FS event debounce timer error:", timer_err or "unknown error")
-                self:on_fs_event(callback_err, filename, events)
-                return
-            end
-
-            timer:start(config.fs_event_debounce, 0, vim.schedule_wrap(function()
-                self:put_fs_debounce_timer(filename)
-                self:on_fs_event(callback_err, filename, events)
-            end))
-        end)
-
-        local _, event_err = handle:start(path, flags, callback)
-        if event_err then
-            log.warn("failed to watch vcs directory", path, ":", event_err)
-            goto continue
-        end
-
-        log.trace(self.name, "watching path:", path)
-
-        ::continue::
+        self:_watch_path(path, flags)
     end
 end
 
@@ -191,6 +151,72 @@ function VcsSystem:cancel_fs_event_listener()
     end
 
     self.fs_event_handle_tbl = {}
+end
+
+---@param path string
+---@param flags table
+function VcsSystem:_watch_path(path, flags)
+    local handle, handle_err = self:get_fs_event_handle(path)
+    if not handle then
+        log.warn("failed to create fs event handle", handle_err or "unknown error")
+        return
+    end
+
+    local callback = vim.schedule_wrap(function(callback_err, filename, events)
+        if filename then
+            filename = path .. "/" .. filename
+            filename = vim.fn.fnamemodify(filename, ":p")
+            filename = vim.fs.normalize(filename)
+        else
+            filename = filename or self.root_dir
+        end
+
+        local timer, timer_err = self:get_fs_debounce_timer(filename)
+        if not timer or timer_err then
+            log.warn("FS event debounce timer error:", timer_err or "unknown error")
+            self:on_fs_event(callback_err, filename, events)
+            return
+        end
+
+        timer:start(config.fs_event_debounce, 0, vim.schedule_wrap(function()
+            self:put_fs_debounce_timer(filename)
+            self:on_fs_event(callback_err, filename, events)
+        end))
+    end)
+
+    local _, event_err = handle:start(path, flags, callback)
+    if event_err then
+        log.warn("failed to watch vcs directory", path, ":", event_err)
+        return
+    end
+
+    log.trace(self.name, "watching path:", path)
+end
+
+-- remove listener for deleted directory, add new one for new directory.
+---@param path string
+---@param events { change: boolean?, rename: boolean? }
+function VcsSystem:_update_fs_event_listener(path, events)
+    if not events.rename then return end
+
+    -- only linux needs manual recursive fs event listener handling
+    if vim.fn.has("linux") ~= 1 then return end
+
+    local handle = self.fs_event_handle_tbl[path]
+
+    if vim.fn.isdirectory(path) == 1 then
+        if not handle then
+            local child_paths = path_util.append_all_child_dirs({ path }, path)
+
+            for _, chid_path in ipairs(child_paths) do
+                self:_watch_path(chid_path, {})
+            end
+        end
+    else
+        if handle then
+            self:put_fs_event_handle(path)
+        end
+    end
 end
 
 ---@return string[]
@@ -225,6 +251,8 @@ function VcsSystem:on_fs_event(err, filename, events)
         self.is_deleted = true
         return
     end
+
+    self:_update_fs_event_listener(filename, events)
 
     -- Status value update also trigger file system event. Ignore new event when
     -- there is an ongoing update.

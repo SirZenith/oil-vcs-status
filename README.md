@@ -36,6 +36,12 @@ You don't have to set any option value to use this plugin, if you want to
 customize status symbol appearance, you can pass you config table to plugin
 like following:
 
+> Special note: recursive file system event listening on Linux is implemented by
+  listening all sub directory under VCS root, because libuv doesn't support that
+  on Linux.
+>
+> If this is slowing you down, you can turn this off via config.
+
 ```lua
 local status_const = require "oil-vcs-status.constant.status"
 

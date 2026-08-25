@@ -75,6 +75,10 @@ function Svn:status_updater(stdout)
             break
         end
 
+        if line:match(".*:") then
+            goto continue
+        end
+
         local local_status_str = line:sub(1, 1)
         local remote_status_str = line:sub(7, 7)
 
@@ -93,6 +97,8 @@ function Svn:status_updater(stdout)
         if local_status and remote_status then
             status_tree:update_child(str_util.unquote(path), local_status, remote_status)
         end
+
+        ::continue::
     end
 end
 
